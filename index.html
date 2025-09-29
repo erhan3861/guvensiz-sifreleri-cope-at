@@ -1,0 +1,360 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Güvensiz Şifreleri Çöpe At Oyunu</title>
+<style>
+:root{
+    --bg:#0b0f26; --panel:#141a3f; --panel2:#192159; --ink:#eef0ff; --muted:#a9add6;
+    --accent:#6c5dd3; --gold:#ffde59; --good:#2ecc71; --danger:#e74c3c;
+}
+*{box-sizing:border-box;user-select:none}
+html,body{height:100%;margin:0;background:var(--bg);color:var(--ink);font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif;overflow:hidden}
+#game-container{position:relative;width:100vw;height:100vh;background:radial-gradient(circle,var(--panel),var(--bg));box-shadow: inset 0 0 25px rgba(0,0,0,.6);padding-top:62px;display:flex;flex-direction:column;overflow:hidden}
+.ui-bar{position:fixed;top:0;left:0;right:0;height:62px;padding:10px 15px;z-index:2000;background:rgba(0,0,0,.35);display:flex;justify-content:space-between;align-items:center;border-bottom:2px solid rgba(108,93,211,.3);gap:15px;backdrop-filter: blur(6px)}
+.ui-left-group,.ui-right-group{display:flex;align-items:center;gap:20px}
+.ui-right-group{gap:10px}
+.stats{display:flex;gap:20px;font-size:clamp(1.1rem,3vw,1.4rem);font-weight:700}
+.btn{background:linear-gradient(180deg,var(--accent),#4e42c2);border:1px solid rgba(255,255,255,.15);color:#fff;padding:8px 12px;border-radius:10px;cursor:pointer;font-weight:700;font-size:.9rem;box-shadow:0 5px 15px rgba(0,0,0,.3);transition:transform .1s, box-shadow .2s;display:flex;align-items:center;gap:8px}
+.btn:hover{box-shadow:0 8px 20px rgba(0,0,0,.4);transform:translateY(-1px)}
+.btn:active{transform:scale(.98)}
+.btn.ghost{background:linear-gradient(180deg,#2b2f55,#1d2147)}
+.btn.good{background:linear-gradient(180deg,var(--good),#177845)}
+.icon img{width:20px;height:20px;display:block}
+.info-panel{text-align:center;padding:6px 12px;background:rgba(0,0,0,0.2);color:var(--gold);font-weight:700;font-size:1rem;border-radius:0 0 12px 12px;box-shadow:0 5px 10px rgba(0,0,0,.2);margin:0 auto 10px auto;width:max-content;text-shadow:0 0 5px rgba(255,222,89,.5);display:flex;align-items:center;gap:10px}
+#game-area{flex-grow:1;display:flex;flex-direction:column;align-items:center;justify-content:space-between;gap:20px;padding:clamp(10px,2vw,20px);min-height:0}
+#passwords-container{display:flex;flex-wrap:wrap;gap:15px;justify-content:center;align-content:center;width:100%;max-width:900px;flex-grow:1}
+.password-card{padding:12px 16px;background:var(--panel);border:2px solid var(--panel2);border-radius:8px;font-family:'Courier New',Courier,monospace;font-weight:bold;font-size:1.1rem;cursor:grab;transition:all .2s ease;box-shadow:0 5px 15px rgba(0,0,0,.3)}
+.password-card[data-type="bad"]{color:var(--danger)}
+.password-card[data-type="good"]{color:var(--good)}
+.no-hint .password-card[data-type="bad"],.no-hint .password-card[data-type="good"]{color:var(--ink)!important}
+.password-card.dragging{opacity:.5;transform:scale(1.05)}
+.password-card.trashed{transform:scale(0) rotate(45deg);opacity:0}
+.password-card.shake{animation:shake .4s}
+@keyframes shake{0%,100%{transform:translateX(0)}25%{transform:translateX(-8px)}75%{transform:translateX(8px)}}
+#trash-can{width:150px;height:150px;border:3px dashed var(--panel2);border-radius:16px;display:flex;align-items:center;justify-content:center;transition:all .2s;flex-shrink:0}
+#trash-can svg{width:60%;height:60%;color:var(--muted);transition:all .2s}
+#trash-can.over{border-color:var(--danger);background-color:rgba(231,76,60,.1);transform:scale(1.05)}
+#trash-can.over svg{color:var(--danger);transform:scale(1.1)}
+.modal{position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:rgba(11,15,38,.7);backdrop-filter:blur(8px);z-index:1500}
+.modal.active{display:flex}
+.modal-content{position:relative;background:linear-gradient(160deg,var(--panel),var(--panel2));border:1px solid var(--accent);padding:30px 40px;border-radius:16px;max-width:560px;width:90%;text-align:center;box-shadow:0 10px 50px rgba(0,0,0,.5)}
+.modal-content h2{margin:0 0 10px;font-size:2rem;color:var(--gold)}
+.modal-content p{color:var(--muted);font-size:1.05rem;line-height:1.6}
+.pass-box{display:flex;gap:12px;align-items:center;justify-content:center;margin:20px 0;background:rgba(0,0,0,.3);padding:10px 12px;border-radius:12px}
+.pass{font-size:1.15rem;font-weight:900;color:var(--gold);letter-spacing:2px;text-shadow:0 0 8px var(--gold)}
+.close-modal-btn{position:absolute;top:10px;right:15px;background:none;border:none;color:var(--muted);font-size:2rem;font-weight:bold;cursor:pointer;line-height:1;padding:0;transition:color .2s,transform .2s}
+.close-modal-btn:hover{color:var(--ink);transform:scale(1.1)}
+@media (max-width:480px){#trash-can{width:120px;height:120px}.password-card{font-size:1rem;padding:10px 12px}}
+</style>
+</head>
+<body>
+
+<div id="game-container">
+  <div class="ui-bar">
+    <div class="ui-left-group">
+      <div class="stats">
+        <div id="score-display">Puan: 0</div>
+        <div id="remaining-display">Kalan Çöp: 0</div>
+      </div>
+    </div>
+    <div class="ui-right-group">
+      <button class="btn good" id="start-btn">YENİ OYUN</button>
+      <button id="ui-fullscreen-btn" class="btn ghost" title="Tam Ekran Modu">
+        <span class="icon">
+          <img id="icon-expand" src="https://raw.githubusercontent.com/erhan3861/Maze-oyunu/main/maximize.png" alt="Tam Ekran Yap"/>
+          <img id="icon-compress" src="https://raw.githubusercontent.com/erhan3861/Maze-oyunu/main/minimize.png" alt="Tam Ekrandan Çık" style="display:none;"/>
+        </span>
+      </button>
+    </div>
+  </div>
+
+  <div class="info-panel" id="info-panel">
+    <span id="info-text">
+      Güvensiz şifreleri (<span style="color:var(--danger)">Kırmızı</span>) çöpe, güvenli şifreleri (<span style="color:var(--good)">Yeşil</span>) ekranda bırakın.
+    </span>
+    <button id="to-game-btn" class="btn ghost" style="display:none;">Asıl Oyuna Başla</button>
+  </div>
+
+  <div id="game-area">
+    <div id="passwords-container"></div>
+    <div id="trash-can">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"><path d="M16 9v10H8V9h8m-1.5-6h-5l-1 1H5v2h14V4h-3.5l-1-1zM18 7H6v12c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7z"/></svg>
+    </div>
+  </div>
+</div>
+
+<div id="start-modal" class="modal active">
+  <div class="modal-content">
+    <button id="close-start-modal-btn" class="close-modal-btn" title="Kapat">&times;</button>
+    <h2>Şifre Güvenliği Oyunu</h2>
+    <p>Önce <b>Antreman Modu</b> ile başlayacaksın: <span style="color:var(--danger)">Kırmızı</span> = Zayıf (çöpe), <span style="color:var(--good)">Yeşil</span> = Güçlü (ekranda kalır).<br>
+    Sonra <b>Asıl Oyuna</b> geçeceksin ve <u>renk ipuçları olmayacak</u>. Asıl oyunu bitirmek için <b>1000 puan</b> yap!</p>
+    <button id="start-btn-2" class="btn good" style="margin-top:15px;padding:12px 20px;font-size:1rem">ANTREMANA BAŞLA</button>
+  </div>
+</div>
+
+<div id="end-modal" class="modal">
+  <div class="modal-content">
+    <button id="close-end-modal-btn" class="close-modal-btn" title="Kapat">&times;</button>
+    <h2 id="end-title">🎉 Görev Tamamlandı!</h2>
+    <p id="end-score">Tüm güvensiz şifreleri temizledin!</p>
+    <div id="password-section" style="display:none;">
+      <p>Bölüm şifreniz:</p>
+      <div class="pass-box">
+        <span id="password" class="pass">—</span>
+        <button id="copy-btn" class="btn">Kopyala</button>
+      </div>
+    </div>
+    <p style="color:var(--muted);font-size:.9rem;margin-top:15px;">Yeni bir görev için <b>YENİ OYUN</b> butonunu kullan.</p>
+  </div>
+</div>
+
+<script>
+'use strict';
+
+const startModal = document.getElementById('start-modal');
+const endModal = document.getElementById('end-modal');
+const startBtn = document.getElementById('start-btn');
+const startBtn2 = document.getElementById('start-btn-2');
+const closeStartModalBtn = document.getElementById('close-start-modal-btn');
+const closeEndModalBtn = document.getElementById('close-end-modal-btn');
+
+const scoreDisplay = document.getElementById('score-display');
+const remainingDisplay = document.getElementById('remaining-display');
+const endScore = document.getElementById('end-score');
+const passwordSection = document.getElementById('password-section');
+const passwordDisplay = document.getElementById('password');
+const copyBtn = document.getElementById('copy-btn');
+
+const uiFullscreenBtn = document.getElementById('ui-fullscreen-btn');
+const iconExpand = document.getElementById('icon-expand');
+const iconCompress = document.getElementById('icon-compress');
+
+const infoText = document.getElementById('info-text');
+const toGameBtn = document.getElementById('to-game-btn');
+
+const passwordsContainer = document.getElementById('passwords-container');
+const trashCan = document.getElementById('trash-can');
+
+const PASSWORD_KEY = 'CYBER-HERO-NEON-2025';
+const BASE_PASSWORDS = [
+  { text: '123456', type: 'bad' },
+  { text: 'password', type: 'bad' },
+  { text: 'KediMavis123', type: 'bad' },
+  { text: 'qwerty', type: 'bad' },
+  { text: '11111111', type: 'bad' },
+  { text: 'admin', type: 'bad' },
+  { text: 'St@rW@rs_R0x!', type: 'good' },
+  { text: 'Tr3ndy!B@ku_77', type: 'good' },
+  { text: 'Qy$!pXn5#jGv', type: 'good' },
+  { text: 'k&d_Mevlana_1273', type: 'good' },
+  { text: 'G#v3nL!k0d_2o25', type: 'good' },
+  { text: 'P@s$w0rd_DeqiL!', type: 'good' },
+];
+
+// ASIL OYUN için ekstra havuz (daha fazla iyi/kötü)
+const EXTRA_BAD = [
+  { text: '123123', type: 'bad' },
+  { text: 'iloveyou', type: 'bad' },
+  { text: 'abc123', type: 'bad' },
+  { text: '000000', type: 'bad' },
+  { text: 'passw0rd', type: 'bad' },
+  { text: 'letmein', type: 'bad' },
+  { text: 'dragon', type: 'bad' },
+  { text: 'monkey', type: 'bad' },
+  { text: '654321', type: 'bad' },
+  { text: 'welcome', type: 'bad' },
+  { text: 'sunshine', type: 'bad' },
+  { text: 'football', type: 'bad' },
+  { text: 'aa123456', type: 'bad' },
+  { text: 'asdfgh', type: 'bad' },
+  { text: 'zxcvbn', type: 'bad' },
+  { text: '121212', type: 'bad' },
+];
+
+const EXTRA_GOOD = [
+  { text: 'H4z@n*Data^92', type: 'good' },
+  { text: 'Kars_Ardahan!57', type: 'good' },
+  { text: 'B3y!nF1rt1nasi_?', type: 'good' },
+  { text: 'Ne0n^River_2048', type: 'good' },
+  { text: 't1mUR@steppe=19', type: 'good' },
+  { text: 'B0zkrT>Ak1n_!7', type: 'good' },
+  { text: 'Ank@_Cl0ud-314', type: 'good' },
+  { text: 'M4tr!x_W@llnut7', type: 'good' },
+  { text: 'Ankar-a++3905', type: 'good' },
+  { text: 'G0ld&V!0let_42', type: 'good' },
+  { text: 'Qw9$Lm3?Tr2#x', type: 'good' },
+  { text: 'S3l!m_C0de^88', type: 'good' },
+];
+
+let score = 0;
+let totalBadPasswords = 0;
+let trashedBadPasswords = 0;
+let phase = 'start'; // 'tutorial' | 'game'
+const WIN_SCORE = 1000; // *** asıl oyunun bitiş puanı ***
+
+function shuffle(array){
+  for(let i=array.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[array[i],array[j]]=[array[j],array[i]]}
+  return array;
+}
+
+function buildDataset(mode){
+  if(mode==='tutorial') return [...BASE_PASSWORDS];
+  // Asıl oyunda daha bol havuz: mevcut + ekstra
+  return [...BASE_PASSWORDS, ...EXTRA_BAD, ...EXTRA_GOOD];
+}
+
+function createPasswordGame(mode='tutorial'){
+  passwordsContainer.classList.toggle('no-hint', mode==='game');
+  passwordsContainer.innerHTML='';
+  score = 0;
+  trashedBadPasswords = 0;
+
+  const dataset = buildDataset(mode);
+  totalBadPasswords = dataset.filter(p=>p.type==='bad').length;
+
+  updateUI();
+
+  shuffle(dataset).forEach((pass, i)=>{
+    const card = document.createElement('div');
+    card.className = 'password-card';
+    card.id = `pass-${i}-${mode}`;
+    card.dataset.type = pass.type;
+    card.draggable = true;
+    card.textContent = pass.text;
+    card.addEventListener('dragstart', handleDragStart);
+    card.addEventListener('dragend', handleDragEnd);
+    passwordsContainer.appendChild(card);
+  });
+
+  if(mode==='tutorial'){
+    infoText.innerHTML = `Antreman: Güvensiz (<span style="color:var(--danger)">Kırmızı</span>) şifreleri çöpe at, güçlü (<span style="color:var(--good)">Yeşil</span>) şifreleri ekranda bırak.`;
+    toGameBtn.style.display = 'inline-flex';
+  }else{
+    infoText.textContent = `Asıl Oyun: Renk ipuçları yok. Güvensizleri çöpe at, güçlüleri bırak. Hedef: ${WIN_SCORE} puan.`;
+    toGameBtn.style.display = 'none';
+  }
+}
+
+function updateUI(){
+  scoreDisplay.textContent = `Puan: ${score}`;
+  remainingDisplay.textContent = `Kalan Çöp: ${totalBadPasswords - trashedBadPasswords}`;
+}
+
+function handleDragStart(e){
+  e.dataTransfer.setData('cardId', e.target.id);
+  setTimeout(()=>e.target.classList.add('dragging'),0);
+}
+function handleDragEnd(e){ e.target.classList.remove('dragging'); }
+function handleDragOver(e){ e.preventDefault(); trashCan.classList.add('over'); }
+function handleDragLeave(){ trashCan.classList.remove('over'); }
+
+function handleDrop(e){
+  e.preventDefault();
+  trashCan.classList.remove('over');
+
+  const cardId = e.dataTransfer.getData('cardId');
+  const card = document.getElementById(cardId);
+  if(!card) return;
+
+  if(card.dataset.type==='bad'){
+    card.classList.add('trashed');
+    setTimeout(()=>card.remove(),200);
+    score += 50;                 // *** puan artışı ***
+    trashedBadPasswords++;
+    updateUI();
+
+    // *** Bitiş kontrolleri ***
+    if(phase==='game' && score >= WIN_SCORE){
+      endGame(true);
+      return;
+    }
+    // Tüm kötüleri bitirdiyse (ekstra güvence)
+    if(trashedBadPasswords === totalBadPasswords){
+      endGame(true);
+      return;
+    }
+  }else{
+    card.classList.add('shake');
+    setTimeout(()=>card.classList.remove('shake'),400);
+    score = Math.max(0, score - 50);
+    updateUI();
+  }
+}
+
+function startTutorial(){
+  phase = 'tutorial';
+  startModal.classList.remove('active');
+  endModal.classList.remove('active');
+  createPasswordGame('tutorial');
+}
+function startMainGame(){
+  phase = 'game';
+  endModal.classList.remove('active');
+  createPasswordGame('game');
+}
+function startGameButton(){ startTutorial(); }
+
+function endGame(isWin){
+  if(isWin){
+    const goalText = (phase==='game')
+      ? `Hedefe ulaştın: ${score} puan!`
+      : `Antremanı tamamladın.`;
+    endScore.textContent = goalText;
+
+    if(phase==='game'){
+      passwordSection.style.display = 'block';
+      passwordDisplay.textContent = PASSWORD_KEY;
+    }else{
+      passwordSection.style.display = 'none';
+    }
+  }
+  endModal.classList.add('active');
+}
+
+// DnD
+trashCan.addEventListener('dragover', handleDragOver);
+trashCan.addEventListener('dragleave', handleDragLeave);
+trashCan.addEventListener('drop', handleDrop);
+
+// Fullscreen
+function toggleFullscreen(){
+  if(!document.fullscreenElement){
+    document.documentElement.requestFullscreen().catch(err=>alert(`Tam ekran başlatılamadı: ${err.message}`));
+  }else if(document.exitFullscreen){ document.exitFullscreen(); }
+}
+function updateFullscreenIcon(){
+  const on = !!document.fullscreenElement;
+  iconExpand.style.display = on ? 'none' : 'block';
+  iconCompress.style.display = on ? 'block' : 'none';
+}
+document.addEventListener('fullscreenchange', updateFullscreenIcon);
+document.getElementById('ui-fullscreen-btn').addEventListener('click', toggleFullscreen);
+
+// Kopyala
+copyBtn.addEventListener('click', async ()=>{
+  const t = passwordDisplay.textContent.trim();
+  if(!t || t==='—') return;
+  try{ await navigator.clipboard.writeText(t); copyBtn.textContent='✅ Kopyalandı'; }
+  catch{ copyBtn.textContent='❌ Hata'; }
+  setTimeout(()=>copyBtn.textContent='Kopyala',1500);
+});
+
+// Modallar
+closeStartModalBtn.addEventListener('click', ()=>startModal.classList.remove('active'));
+closeEndModalBtn.addEventListener('click', ()=>endModal.classList.remove('active'));
+startModal.addEventListener('click', e=>{ if(e.target===startModal) startModal.classList.remove('active'); });
+endModal.addEventListener('click', e=>{ if(e.target===endModal) endModal.classList.remove('active'); });
+
+// Butonlar
+startBtn.addEventListener('click', startGameButton);
+startBtn2.addEventListener('click', startTutorial);
+toGameBtn.addEventListener('click', startMainGame);
+
+// İlk ikon durumu
+updateFullscreenIcon();
+</script>
+</body>
+</html>
